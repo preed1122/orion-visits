@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop Visit Interviews</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #FAFAF8;
+    --ink: #1B2228;
+    --faint: #5B6670;
+    --line: #D9DCD6;
+    --blue: #2456A6;
+    --orange: #E8630A;
+    --ok: #1E7A46;
+    --err: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Barlow', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 0 16px 64px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1, h2 {
+    font-family: 'Barlow Semi Condensed', 'Barlow', sans-serif;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0;
+  }
+  header.ticket {
+    border-top: 6px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+    padding: 20px 0 16px;
+    margin-bottom: 28px;
+  }
+  .ticket-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .ticket-tag {
+    font-family: 'Barlow Semi Condensed', sans-serif;
+    font-weight: 600; color: var(--faint); font-size: 15px; white-space: nowrap;
+  }
+  .sub { margin: 6px 0 0; color: var(--faint); font-size: 15px; }
+  label span.lbl { display: block; font-weight: 600; margin-bottom: 6px; }
+  input[type=text], textarea, select {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+  }
+  textarea { min-height: 88px; resize: vertical; }
+  input:focus, textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(36,86,166,0.15);
+  }
+  button {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 12px 22px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button.primary { border: none; background: var(--blue); color: #fff; }
+  button.primary:disabled { background: #AEB6BC; cursor: not-allowed; }
+  button.ghost { border: 1.5px solid var(--line); background: transparent; color: var(--ink); }
+  button.role {
+    display: block; width: 100%; text-align: left;
+    padding: 14px 16px; background: #fff;
+    border: 1.5px solid var(--line); border-left: 5px solid var(--blue);
+    border-radius: 6px; margin-bottom: 10px;
+    font-family: 'Barlow Semi Condensed', sans-serif;
+    font-weight: 600; font-size: 18px; color: var(--ink);
+  }
+  button.role:disabled { border-left-color: var(--line); opacity: 0.6; cursor: not-allowed; }
+  button.role small {
+    display: block; font-family: 'Barlow', sans-serif;
+    font-weight: 400; font-size: 14px; color: var(--faint); margin-top: 2px;
+  }
+  .field { margin-bottom: 16px; }
+  .qblock { margin-bottom: 22px; }
+  .qhead { display: flex; gap: 10px; margin-bottom: 6px; }
+  .qnum {
+    font-family: 'Barlow Semi Condensed', sans-serif;
+    font-weight: 700; min-width: 22px; color: var(--faint);
+  }
+  .qnum.req { color: var(--orange); }
+  .qtext { font-weight: 500; }
+  .star { color: var(--orange); }
+  .hint { color: var(--faint); font-size: 14px; margin-top: 10px; }
+  .error { color: var(--err); font-size: 14px; margin-top: 10px; }
+  .divider { border-top: 1px solid var(--line); margin: 8px 0 20px; }
+  .actions { margin-top: 32px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .done-title { color: var(--ok); font-size: 24px; margin-bottom: 8px; }
+  .setup-warning {
+    background: #FFF4E8; border: 1.5px solid var(--orange);
+    border-radius: 6px; padding: 12px 16px; margin-bottom: 24px; font-size: 15px;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="ticket">
+    <div class="ticket-row">
+      <h1 style="font-size:30px;">Shop Visit Interviews</h1>
+      <span class="ticket-tag" id="headerTag">SMS staff tool</span>
+    </div>
+    <p class="sub" id="headerSub">Record what shop staff tell you during your visit. One interview per person.</p>
+  </header>
+
+  <div id="setupWarning" class="setup-warning" style="display:none;">
+    <strong>Setup needed:</strong> this page isn't connected to a Google Sheet yet.
+    Open this file in a text editor and paste your Apps Script Web App URL into
+    <code>SCRIPT_URL</code> near the bottom.
+  </div>
+
+  <!-- START SCREEN -->
+  <div class="screen active" id="screen-start">
+    <h2 style="font-size:20px; margin-bottom:14px;">Visit details</h2>
+    <div class="field">
+      <label><span class="lbl">Your name (SMS staff)</span>
+        <input type="text" id="interviewer" placeholder="Who's conducting this visit">
+      </label>
+    </div>
+    <div class="field">
+      <label><span class="lbl">Shop name</span>
+        <input type="text" id="shop" placeholder="The shop you're visiting">
+      </label>
+    </div>
+    <div class="field" style="margin-bottom:28px;">
+      <label><span class="lbl">Person you're interviewing</span>
+        <input type="text" id="interviewee" placeholder="Optional — first name is fine">
+      </label>
+    </div>
+
+    <div style="font-weight:600; margin-bottom:10px;">Their role — pick one to load its question set</div>
+    <div id="roleButtons"></div>
+    <p class="hint" id="visitHint">Enter your name and the shop name to start an interview.</p>
+  </div>
+
+  <!-- FORM SCREEN -->
+  <div class="screen" id="screen-form">
+    <h2 style="font-size:20px; margin-bottom:4px;">Mandatory top 5</h2>
+    <p class="hint" style="margin:0 0 18px;">Ask all five, marked with <span class="star">*</span>. Jot answers as they talk — cleanup can happen later.</p>
+    <div id="mandatoryQuestions"></div>
+
+    <div class="divider"></div>
+
+    <button class="ghost" id="showOptionalBtn">Have time? Ask the optional 5</button>
+    <div id="optionalSection" style="display:none;">
+      <h2 style="font-size:20px; margin:0 0 4px;">Optional 5</h2>
+      <p class="hint" style="margin:0 0 18px;">Skip any that don't fit the conversation.</p>
+      <div id="optionalQuestions"></div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="saveBtn" disabled>Save interview</button>
+      <button class="ghost" id="backBtn">Back</button>
+    </div>
+    <p class="hint" id="mandatoryHint">All five mandatory answers are needed before saving.</p>
+    <p class="error" id="saveError" style="display:none;">
+      The interview didn't save. Check your connection and press Save again — your notes are still here.
+    </p>
+  </div>
+
+  <!-- DONE SCREEN -->
+  <div class="screen" id="screen-done">
+    <h2 class="done-title">Interview saved</h2>
+    <p class="sub" id="doneMsg" style="margin-bottom:24px;"></p>
+    <div class="actions" style="margin-top:0;">
+      <button class="primary" id="nextBtn">Interview next person</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SETUP: paste your Google Apps Script Web App URL between the
+// quotes below. It looks like:
+// https://script.google.com/macros/s/XXXXXXXX/exec
+// ============================================================
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5dkY_rE3DYQvuUMNl7n6zv93gsZH3yRCUSIgPb3OUb-aT6vYb6EHA88-XS4K72C2A/exec";
+
+// ---------- Questions (from Shop_Visit_Questions.docx) ----------
+const ROLES = {
+  advisor: {
+    label: "Service Advisor (Writer)",
+    short: "Service Advisor",
+    mandatory: [
+      "What task consumes the most time in your day?",
+      "What customer communication do you repeat over and over?",
+      "What information do you spend the most time chasing down?",
+      "What slows down estimate creation or approvals?",
+      "If you could automate one part of your job tomorrow, what would it be?",
+    ],
+    optional: [
+      "What information do customers ask for most often?",
+      "Where do you leave the SMS and use another tool?",
+      "What causes the biggest delays getting vehicles through the shop?",
+      "What do you manually enter more than once?",
+      "Would you trust AI to write customer updates, estimate explanations, or service recommendations? Why or why not?",
+    ],
+  },
+  technician: {
+    label: "Technician",
+    short: "Technician",
+    mandatory: [
+      "What wastes the most time during a repair order?",
+      "What information is most often missing when you start a job?",
+      "What causes you to stop and wait during a repair?",
+      "What documentation task takes longer than it should?",
+      "If you could remove one daily frustration, what would it be?",
+    ],
+    optional: [
+      "What information do you repeatedly ask advisors for?",
+      "What causes the most rework or repeat effort?",
+      "What do you track outside the SMS?",
+      "Would AI-generated repair notes or inspection write-ups save you time?",
+      "Would you trust AI to suggest diagnostic paths, likely causes, or parts recommendations? Why or why not?",
+    ],
+  },
+  manager: {
+    label: "Manager / Parts Coordinator / Bookkeeper",
+    short: "Manager / Parts / Bookkeeper",
+    mandatory: [
+      "What takes up the most time that doesn't directly generate revenue?",
+      "What information are you constantly chasing from staff or systems?",
+      "What process has the most manual steps or duplicate work?",
+      "What problems do you typically discover too late?",
+      "If you could automate one business process, what would it be?",
+    ],
+    optional: [
+      "What reports or metrics require manual effort today?",
+      "What causes the most interruptions throughout your day?",
+      "Where do repair orders most commonly get stuck?",
+      "What do you track in spreadsheets because the SMS doesn't do it well?",
+      "If AI worked like a virtual operations manager, what information or recommendations would you want it providing automatically?",
+    ],
+  },
+};
+
+// ---------- State ----------
+let currentRole = null;
+
+// ---------- Elements ----------
+const $ = (id) => document.getElementById(id);
+const screens = { start: $("screen-start"), form: $("screen-form"), done: $("screen-done") };
+
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s.classList.remove("active"));
+  screens[name].classList.add("active");
+  window.scrollTo(0, 0);
+  const roleDef = currentRole ? ROLES[currentRole] : null;
+  $("headerTag").textContent = name === "form" && roleDef ? roleDef.short : "SMS staff tool";
+  $("headerSub").textContent =
+    name === "form"
+      ? $("shop").value.trim() + " — capture answers as you talk. Their words, not a summary."
+      : "Record what shop staff tell you during your visit. One interview per person.";
+}
+
+// ---------- Start screen ----------
+function visitReady() {
+  return $("interviewer").value.trim() !== "" && $("shop").value.trim() !== "";
+}
+
+function renderRoleButtons() {
+  const container = $("roleButtons");
+  container.innerHTML = "";
+  const ready = visitReady();
+  Object.entries(ROLES).forEach(([key, r]) => {
+    const btn = document.createElement("button");
+    btn.className = "role";
+    btn.disabled = !ready;
+    btn.innerHTML = r.label + "<small>5 required questions · 5 optional if time allows</small>";
+    btn.addEventListener("click", () => startInterview(key));
+    container.appendChild(btn);
+  });
+  $("visitHint").style.display = ready ? "none" : "block";
+}
+
+["interviewer", "shop"].forEach((id) =>
+  $(id).addEventListener("input", renderRoleButtons)
+);
+
+// ---------- Form screen ----------
+function questionBlock(idPrefix, index, text, required) {
+  const div = document.createElement("div");
+  div.className = "qblock";
+  div.innerHTML =
+    '<label><span class="qhead">' +
+    '<span class="qnum' + (required ? " req" : "") + '">' + (index + 1) + ".</span>" +
+    '<span class="qtext">' + text + (required ? ' <span class="star">*</span>' : "") + "</span>" +
+    "</span>" +
+    '<textarea id="' + idPrefix + index + '"' + (required ? ' aria-required="true"' : "") + "></textarea>" +
+    "</label>";
+  return div;
+}
+
+function startInterview(roleKey) {
+  currentRole = roleKey;
+  const r = ROLES[roleKey];
+
+  const mand = $("mandatoryQuestions");
+  mand.innerHTML = "";
+  r.mandatory.forEach((q, i) => mand.appendChild(questionBlock("m", i, q, true)));
+
+  const opt = $("optionalQuestions");
+  opt.innerHTML = "";
+  r.optional.forEach((q, i) => opt.appendChild(questionBlock("o", i, q, false)));
+
+  $("optionalSection").style.display = "none";
+  $("showOptionalBtn").style.display = "inline-block";
+  $("saveError").style.display = "none";
+
+  mand.querySelectorAll("textarea").forEach((t) =>
+    t.addEventListener("input", updateSaveState)
+  );
+  updateSaveState();
+  showScreen("form");
+}
+
+function mandatoryDone() {
+  if (!currentRole) return false;
+  return ROLES[currentRole].mandatory.every(
+    (_, i) => $("m" + i).value.trim() !== ""
+  );
+}
+
+function updateSaveState() {
+  const ok = mandatoryDone();
+  $("saveBtn").disabled = !ok;
+  $("mandatoryHint").style.display = ok ? "none" : "block";
+}
+
+$("showOptionalBtn").addEventListener("click", () => {
+  $("showOptionalBtn").style.display = "none";
+  $("optionalSection").style.display = "block";
+});
+
+$("backBtn").addEventListener("click", () => showScreen("start"));
+
+// ---------- Save ----------
+$("saveBtn").addEventListener("click", async () => {
+  if (!mandatoryDone()) return;
+  const btn = $("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+  $("saveError").style.display = "none";
+
+  const r = ROLES[currentRole];
+  const record = {
+    submittedAt: new Date().toISOString(),
+    interviewer: $("interviewer").value.trim(),
+    shop: $("shop").value.trim(),
+    interviewee: $("interviewee").value.trim() || "Not recorded",
+    roleLabel: r.label,
+    answers: [
+      ...r.mandatory.map((q, i) => ({
+        type: "Mandatory",
+        question: q,
+        answer: $("m" + i).value.trim(),
+      })),
+      ...r.optional
+        .map((q, i) => ({
+          type: "Optional",
+          question: q,
+          answer: $("o" + i).value.trim(),
+        }))
+        .filter((a) => a.answer),
+    ],
+  };
+
+  try {
+    if (!SCRIPT_URL) throw new Error("SCRIPT_URL not configured");
+    // Plain-text body avoids a CORS preflight; Apps Script parses the JSON.
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify(record),
+    });
+    const out = await res.json();
+    if (out.status !== "ok") throw new Error(out.message || "save failed");
+    $("doneMsg").textContent =
+      "Added to the Google Sheet. Your name and " +
+      record.shop +
+      " are kept for the next one.";
+    showScreen("done");
+  } catch (err) {
+    $("saveError").style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save interview";
+    updateSaveState();
+  }
+});
+
+// ---------- Done screen ----------
+$("nextBtn").addEventListener("click", () => {
+  $("interviewee").value = "";
+  currentRole = null;
+  renderRoleButtons();
+  showScreen("start");
+});
+
+// ---------- Init ----------
+if (!SCRIPT_URL) $("setupWarning").style.display = "block";
+renderRoleButtons();
+</script>
+</body>
+</html>
