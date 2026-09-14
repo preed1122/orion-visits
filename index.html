@@ -60,6 +60,7 @@
     outline: none;
   }
   textarea { min-height: 88px; resize: vertical; }
+  textarea.short { min-height: 56px; }
   input:focus, textarea:focus {
     border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(36,86,166,0.15);
@@ -109,6 +110,17 @@
   }
   .screen { display: none; }
   .screen.active { display: block; }
+  .section-toggle {
+    display: flex; width: 100%; justify-content: space-between; align-items: center;
+    background: #fff; border: 1.5px solid var(--line); border-radius: 6px;
+    padding: 12px 16px; margin-bottom: 4px; text-align: left;
+    font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 18px;
+    color: var(--ink);
+  }
+  .section-toggle .status { font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 14px; }
+  .status.complete { color: var(--ok); }
+  .status.incomplete { color: var(--orange); }
+  .section-body { padding: 16px 0 4px; }
 </style>
 </head>
 <body>
@@ -136,7 +148,7 @@
       </label>
     </div>
     <div class="field">
-      <label><span class="lbl">Shop name</span>
+      <label><span class="lbl">Shop name / location</span>
         <input type="text" id="shop" placeholder="The shop you're visiting">
       </label>
     </div>
@@ -153,6 +165,19 @@
 
   <!-- FORM SCREEN -->
   <div class="screen" id="screen-form">
+
+    <!-- SHOP DATA SHEET (once per visit, carries over between interviews) -->
+    <button class="section-toggle" id="shopDataToggle">
+      <span>Shop data sheet</span>
+      <span class="status incomplete" id="shopDataStatus"></span>
+    </button>
+    <p class="hint" style="margin:0 0 8px;">
+      Standard visit data — fill once per shop. Answers carry over to every interview at this visit.
+    </p>
+    <div class="section-body" id="shopDataSection" style="display:none;"></div>
+
+    <div class="divider" style="margin-top:20px;"></div>
+
     <h2 style="font-size:20px; margin-bottom:4px;">Mandatory top 5</h2>
     <p class="hint" style="margin:0 0 18px;">Ask all five, marked with <span class="star">*</span>. Jot answers as they talk — cleanup can happen later.</p>
     <div id="mandatoryQuestions"></div>
@@ -170,7 +195,7 @@
       <button class="primary" id="saveBtn" disabled>Save interview</button>
       <button class="ghost" id="backBtn">Back</button>
     </div>
-    <p class="hint" id="mandatoryHint">All five mandatory answers are needed before saving.</p>
+    <p class="hint" id="mandatoryHint"></p>
     <p class="error" id="saveError" style="display:none;">
       The interview didn't save. Check your connection and press Save again — your notes are still here.
     </p>
@@ -188,13 +213,34 @@
 
 <script>
 // ============================================================
-// SETUP: paste your Google Apps Script Web App URL between the
-// quotes below. It looks like:
-// https://script.google.com/macros/s/XXXXXXXX/exec
+// SETUP: your Google Apps Script Web App URL.
 // ============================================================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5dkY_rE3DYQvuUMNl7n6zv93gsZH3yRCUSIgPb3OUb-aT6vYb6EHA88-XS4K72C2A/exec";
 
-// ---------- Questions (from Shop_Visit_Questions.docx) ----------
+// ---------- Shop data sheet (standard visit structure) ----------
+// required: must be filled before any interview at this shop can save.
+const SHOP_DATA_FIELDS = [
+  { key: "manager",      required: true,  label: "Shop Manager / Service Director name & # years of experience" },
+  { key: "shopType",     required: true,  label: "Type of vehicles worked on / scope of work done (shop type)" },
+  { key: "baysTechs",    required: true,  label: "Total # of bays / # of techs" },
+  { key: "repairInfo",   required: true,  label: "Repair information (list all sources)" },
+  { key: "goToRepair",   required: true,  label: "Go-to source of repair information" },
+  { key: "computers",    required: true,  label: "Computers (total/type in office, total/type in shop)" },
+  { key: "vhi",          required: true,  label: "Vehicle health inspection system" },
+  { key: "sms",          required: true,  label: "Shop management software system (web-based?)" },
+  { key: "m1Switch",     required: false, label: "If switched from M1 Manager, why?" },
+  { key: "crm",          required: true,  label: "CRM / marketing software / services (list all)" },
+  { key: "custTools",    required: true,  label: "Tools to source / retain new customers" },
+  { key: "webSocial",    required: true,  label: "Website & social media (yes/no/which ones)" },
+  { key: "reviews",      required: true,  label: "Are consumer reviews important? Which ones matter most?" },
+  { key: "diagTools",    required: true,  label: "Diagnostic tools (list all; note their go-to)" },
+  { key: "workflow",     required: true,  label: "Shop workflow (list all steps)" },
+  { key: "smsComplaints",required: true,  label: "Shop management software — complaints / improvement opportunities" },
+  { key: "keyInsights",  required: true,  label: "Key insights (ah-ha moments)" },
+  { key: "opportunities",required: true,  label: "Opportunities" },
+];
+
+// ---------- Role questions (from Shop_Visit_Questions.docx) ----------
 const ROLES = {
   advisor: {
     label: "Service Advisor (Writer)",
@@ -254,6 +300,7 @@ const ROLES = {
 
 // ---------- State ----------
 let currentRole = null;
+const shopData = {}; // persists across interviews within the visit
 
 // ---------- Elements ----------
 const $ = (id) => document.getElementById(id);
@@ -295,6 +342,60 @@ function renderRoleButtons() {
   $(id).addEventListener("input", renderRoleButtons)
 );
 
+// ---------- Shop data sheet ----------
+function renderShopData() {
+  const section = $("shopDataSection");
+  section.innerHTML = "";
+  SHOP_DATA_FIELDS.forEach((f) => {
+    const div = document.createElement("div");
+    div.className = "qblock";
+    div.innerHTML =
+      '<label><span class="lbl" style="font-weight:500;">' +
+      f.label +
+      (f.required ? ' <span class="star">*</span>' : ' <span class="hint" style="font-size:13px;">(if applicable)</span>') +
+      "</span>" +
+      '<textarea class="short" id="sd_' + f.key + '"></textarea>' +
+      "</label>";
+    section.appendChild(div);
+    const ta = div.querySelector("textarea");
+    ta.value = shopData[f.key] || "";
+    ta.addEventListener("input", () => {
+      shopData[f.key] = ta.value;
+      updateShopDataStatus();
+      updateSaveState();
+    });
+  });
+  updateShopDataStatus();
+}
+
+function shopDataDone() {
+  return SHOP_DATA_FIELDS.filter((f) => f.required).every(
+    (f) => (shopData[f.key] || "").trim() !== ""
+  );
+}
+
+function shopDataRemaining() {
+  return SHOP_DATA_FIELDS.filter(
+    (f) => f.required && (shopData[f.key] || "").trim() === ""
+  ).length;
+}
+
+function updateShopDataStatus() {
+  const el = $("shopDataStatus");
+  if (shopDataDone()) {
+    el.textContent = "Complete";
+    el.className = "status complete";
+  } else {
+    el.textContent = shopDataRemaining() + " required left";
+    el.className = "status incomplete";
+  }
+}
+
+$("shopDataToggle").addEventListener("click", () => {
+  const body = $("shopDataSection");
+  body.style.display = body.style.display === "none" ? "block" : "none";
+});
+
 // ---------- Form screen ----------
 function questionBlock(idPrefix, index, text, required) {
   const div = document.createElement("div");
@@ -312,6 +413,10 @@ function questionBlock(idPrefix, index, text, required) {
 function startInterview(roleKey) {
   currentRole = roleKey;
   const r = ROLES[roleKey];
+
+  renderShopData();
+  // Open the data sheet automatically until it's complete; collapse once done
+  $("shopDataSection").style.display = shopDataDone() ? "none" : "block";
 
   const mand = $("mandatoryQuestions");
   mand.innerHTML = "";
@@ -340,9 +445,19 @@ function mandatoryDone() {
 }
 
 function updateSaveState() {
-  const ok = mandatoryDone();
-  $("saveBtn").disabled = !ok;
-  $("mandatoryHint").style.display = ok ? "none" : "block";
+  const roleOk = mandatoryDone();
+  const dataOk = shopDataDone();
+  $("saveBtn").disabled = !(roleOk && dataOk);
+  const hint = $("mandatoryHint");
+  if (roleOk && dataOk) {
+    hint.style.display = "none";
+  } else {
+    hint.style.display = "block";
+    const parts = [];
+    if (!roleOk) parts.push("all five mandatory answers");
+    if (!dataOk) parts.push(shopDataRemaining() + " shop data sheet field" + (shopDataRemaining() === 1 ? "" : "s"));
+    hint.textContent = "Still needed before saving: " + parts.join(" and ") + ".";
+  }
 }
 
 $("showOptionalBtn").addEventListener("click", () => {
@@ -354,7 +469,7 @@ $("backBtn").addEventListener("click", () => showScreen("start"));
 
 // ---------- Save ----------
 $("saveBtn").addEventListener("click", async () => {
-  if (!mandatoryDone()) return;
+  if (!mandatoryDone() || !shopDataDone()) return;
   const btn = $("saveBtn");
   btn.disabled = true;
   btn.textContent = "Saving…";
@@ -368,6 +483,13 @@ $("saveBtn").addEventListener("click", async () => {
     interviewee: $("interviewee").value.trim() || "Not recorded",
     roleLabel: r.label,
     answers: [
+      ...SHOP_DATA_FIELDS
+        .map((f) => ({
+          type: "Shop Data",
+          question: f.label,
+          answer: (shopData[f.key] || "").trim(),
+        }))
+        .filter((a) => a.answer),
       ...r.mandatory.map((q, i) => ({
         type: "Mandatory",
         question: q,
@@ -393,9 +515,9 @@ $("saveBtn").addEventListener("click", async () => {
     const out = await res.json();
     if (out.status !== "ok") throw new Error(out.message || "save failed");
     $("doneMsg").textContent =
-      "Added to the Google Sheet. Your name and " +
+      "Added to the Google Sheet. Your name, " +
       record.shop +
-      " are kept for the next one.";
+      ", and the shop data sheet are kept for the next one.";
     showScreen("done");
   } catch (err) {
     $("saveError").style.display = "block";
